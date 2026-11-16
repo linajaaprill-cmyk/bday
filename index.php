@@ -1,9 +1,14 @@
 <?php
 /* ===== CONFIG ===== */
-$DB=['host'=>getenv('DB_HOST')?:'localhost','port'=>getenv('DB_PORT')?:'3306','name'=>getenv('DB_NAME')?:'birthday_galaxy','user'=>getenv('DB_USER')?:'root','pass'=>getenv('DB_PASS')?:''];
+$DB=[
+    'host'=>getenv('DB_HOST')?:'localhost',
+    'port'=>getenv('DB_PORT')?:'4000', // TiDB default port
+    'name'=>getenv('DB_NAME')?:'birthday_galaxy',
+    'user'=>getenv('DB_USER')?:'root',
+    'pass'=>getenv('DB_PASS')?:''
+];
 $MUSIC='assets/music/the-only-exception.mp3'; $MUSIC2='assets/music/when-i-met-you.mp3'; $SONG='The Only Exception';
 $PASSWORD='4311';
-/* UI art (made from your pictures): assets/img/ui-intro.jpg, ui-mem2.jpg, ui-mem3.jpg */
 
 function h($s){return htmlspecialchars((string)$s,ENT_QUOTES,'UTF-8');}
 function src($f){
@@ -15,8 +20,17 @@ function src($f){
 }
 $S=['name'=>'Allan Mari Castigador','birthday'=>'2005-11-20','headline'=>'Turning 21 and so loved','message'=>'Import database.sql in phpMyAdmin to load your content.','greeting'=>"Dear Allan,\n\nImport database.sql to load the full letter.",'secret_letter'=>'Happy Birthday!'];
 $P=[];$wishes=[];$pdo=null;
+
 try{
-  $pdo=new PDO("mysql:host={$DB['host']};port={$DB['port']};dbname={$DB['name']};charset=utf8mb4",$DB['user'],$DB['pass'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
+  /* ===== TIDB CONNECTION WITH SSL ===== */
+  $options = [
+      PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+      PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+      PDO::MYSQL_ATTR_SSL_CA => '/etc/ssl/certs/ca-certificates.crt',
+      PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => false
+  ];
+  $pdo=new PDO("mysql:host={$DB['host']};port={$DB['port']};dbname={$DB['name']};charset=utf8mb4",$DB['user'],$DB['pass'],$options);
+
   /* ===== UPLOAD HANDLER ===== */
   if($_SERVER['REQUEST_METHOD']==='POST' && isset($_FILES['image']) && isset($_POST['frame_index'])){
     $idx=(int)$_POST['frame_index'];$file=$_FILES['image'];
@@ -49,10 +63,8 @@ $FIRST=strtok($S['name'],' ');
 $fn=strtolower(preg_replace('/[^a-z]/i','',$FIRST))?:'player';
 
 /* ===== helpers ===== */
-/* plain uploadable photo (sits inside the art / dashboard) */
 function pic($P,$i,$cls='',$st=''){$p=$P[$i];$s=src($p['file']);
   return '<figure class="ph '.$cls.'" style="'.$st.'" data-full="'.$s.'" data-cap="'.h($p['title'].' — '.$p['caption']).'"><img src="'.$s.'" alt="'.h($p['title']).'" loading="lazy"><div class="up-ov"><input type="file" accept="image/*" onchange="uploadImage(this,'.$i.')"><span>UPLOAD PHOTO</span></div></figure>';}
-/* HUD terminal-window photo (memory I + letter keep this exact look) */
 function fr($P,$i,$t,$k=0,$st=''){$p=$P[$i];$s=src($p['file']);
   return '<figure class="ph fr '.$t.'" style="--i:'.$k.';'.$st.'" data-full="'.$s.'" data-cap="'.h($p['title'].' — '.$p['caption']).'"><div class="fi"><div class="wb"><i></i><i></i><i></i><span>▸ '.h($p['title']).'</span></div><div class="im"><img src="'.$s.'" alt="'.h($p['title']).'" loading="lazy"><div class="up-ov"><input type="file" accept="image/*" onchange="uploadImage(this,'.$i.')"><span>UPLOAD PHOTO</span></div></div></div></figure>';}
 function ic($s,$c='currentColor',$z=20){return '<svg class="ic" viewBox="0 0 64 64" style="color:'.$c.';width:'.$z.'px;height:'.$z.'px"><use href="#'.$s.'"/></svg>';}
@@ -95,7 +107,6 @@ body{height:100dvh;color:var(--ink);font:500 1.05rem/1.4 var(--body);background:
 .pn:before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.13) 50%,transparent 58%) 0 0/260% 100%;animation:sheen 8s ease-in-out infinite}
 @keyframes sheen{0%{background-position:130% 0}55%,100%{background-position:-130% 0}}
 .pn>h3{font:700 .8rem var(--head);letter-spacing:.14em;color:#fff;padding:10px 16px 0;text-shadow:0 0 10px var(--v)}
-/* ---------- app shell ---------- */
 #app{position:fixed;inset:0;z-index:2;display:grid;grid-template-columns:262px minmax(0,1fr);opacity:0;visibility:hidden;transition:opacity 1s ease,visibility 0s linear 1s}
 body.live #app{opacity:1;visibility:visible;transition:opacity 1s ease}
 .side{display:flex;flex-direction:column;gap:8px;min-height:0;padding:12px;border-right:1px solid rgba(139,92,255,.4);background:linear-gradient(180deg,rgba(14,8,40,.92),rgba(4,2,12,.95));box-shadow:inset -1px 0 24px rgba(139,92,255,.18)}
@@ -127,7 +138,6 @@ body.live #app{opacity:1;visibility:visible;transition:opacity 1s ease}
 .upt em{font-style:normal;min-width:2.2em}
 .upt input:checked~i{border-color:var(--v);box-shadow:0 0 10px rgba(139,92,255,.6)}.upt input:checked~i:after{translate:16px 0;background:var(--v);box-shadow:0 0 8px var(--v)}.upt input:checked~em{color:var(--v)}
 .view{position:relative;min-height:0;overflow:hidden}
-/* ---------- pages ---------- */
 .pg{position:absolute;inset:0;isolation:isolate;display:flex;flex-direction:column;padding:clamp(10px,2vh,22px) clamp(12px,2.4vw,40px) 10px;opacity:0;visibility:hidden;pointer-events:none;transform:translateY(12px);transition:opacity .5s ease,transform .6s cubic-bezier(.2,.8,.2,1),visibility 0s linear .55s}
 .pg.on{opacity:1;visibility:visible;pointer-events:auto;transform:none;transition:opacity .5s ease .05s,transform .6s cubic-bezier(.2,.8,.2,1) .05s,visibility 0s}
 .pg:before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(circle at 85% 10%,color-mix(in srgb,var(--ac) 18%,transparent),transparent 46%),radial-gradient(circle at 5% 100%,color-mix(in srgb,var(--ac) 10%,transparent),transparent 40%)}
@@ -143,7 +153,6 @@ body.live #app{opacity:1;visibility:visible;transition:opacity 1s ease}
 .nx:hover,.sb:hover{background:var(--c);color:#04020c;box-shadow:0 0 16px var(--c)}.sb{padding:6px 11px}.wcnt{font:400 .75rem var(--mono);color:var(--c)}
 .btn{display:inline-block;cursor:pointer;text-decoration:none;font:700 .72rem var(--head);letter-spacing:.12em;text-transform:uppercase;padding:10px 18px;border:1px solid var(--ac);color:var(--ac);background:color-mix(in srgb,var(--ac) 10%,transparent);transition:.3s}
 .btn:hover{background:var(--ac);color:#04020c;box-shadow:0 0 18px var(--ac)}.btn:disabled{opacity:.5;pointer-events:none}
-/* ---------- DASHBOARD (home) ---------- */
 .wel{flex:none;display:flex;align-items:center;gap:14px;margin-bottom:10px}.wel small{display:block;font:500 .8rem var(--body);letter-spacing:.14em;color:var(--dim);text-transform:uppercase}
 .wel b{font:700 clamp(1.3rem,4vh,2rem) var(--body);color:#fff;text-shadow:0 0 14px var(--v)}
 .badge{padding:5px 14px;border-radius:20px;background:rgba(139,92,255,.22);border:1px solid rgba(139,92,255,.6);font:600 .85rem var(--body);box-shadow:0 0 14px rgba(139,92,255,.4)}
@@ -170,7 +179,6 @@ body.live #app{opacity:1;visibility:visible;transition:opacity 1s ease}
 .dl{display:flex;justify-content:space-around;font:500 .85rem var(--body);color:#e0d8ff;padding:0 12px 6px}
 .bday{margin:4px 14px 12px;padding:6px;text-align:center;border:1px solid var(--b);box-shadow:0 0 16px rgba(61,139,255,.5),inset 0 0 14px rgba(139,92,255,.3);font:italic 700 clamp(.9rem,2.6vh,1.25rem) var(--body);color:#fff;text-shadow:0 0 12px var(--v)}
 .spm{padding:0 16px 8px;font:italic 500 clamp(.85rem,2.2vh,1.05rem)/1.3 var(--body);color:#e6dcff;overflow:hidden}.spm b{display:block;margin-top:4px;font:700 1rem var(--body);color:#fff;font-style:normal}
-/* ---------- chamfered photo windows (memory I + letter) ---------- */
 .fr{--a:var(--p);--ab:color-mix(in srgb,var(--a) 55%,#fff);--cut:14px;--cut2:calc(var(--cut) - .2px);position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;cursor:zoom-in;rotate:var(--r,0deg);padding:1px;background:var(--a);
  clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut));transition:opacity .8s ease calc(var(--i)*.09s + .25s),filter .8s,translate .3s,scale .3s,background .3s}
 .fi{position:relative;flex:1;min-height:0;min-width:0;display:flex;flex-direction:column;background:rgba(4,2,12,.97);clip-path:polygon(var(--cut2) 0,100% 0,100% calc(100% - var(--cut2)),calc(100% - var(--cut2)) 100%,0 100%,0 var(--cut2))}
@@ -188,13 +196,11 @@ body.live #app{opacity:1;visibility:visible;transition:opacity 1s ease}
 body.up-on .up-ov{display:flex}
 .up-ov input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .up-ov span{pointer-events:none;font:700 .62rem var(--mono);color:var(--c);border:1px solid var(--c);background:rgba(0,0,0,.85);padding:6px 10px;box-shadow:0 0 15px var(--c);letter-spacing:.1em;text-align:center}
-/* film strip (memory I) */
 .lay{flex:1;min-height:0}.lay>.film{height:100%}
 .film{--hole:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='24'%3E%3Crect x='10' y='4' width='20' height='16' rx='4'/%3E%3C/svg%3E");position:relative;display:flex;flex-direction:column;min-height:0;overflow:hidden;border-radius:12px;background:linear-gradient(180deg,#0a0626,#05030f);border-top:1px solid var(--ac);border-bottom:1px solid var(--ac);box-shadow:0 0 26px color-mix(in srgb,var(--ac) 30%,transparent),inset 0 0 40px rgba(120,60,255,.12)}
 .film:before,.film:after{content:"";flex:none;height:24px;margin:5px 0;background:var(--ac);-webkit-mask:var(--hole) 0 50%/40px 24px repeat-x;mask:var(--hole) 0 50%/40px 24px repeat-x;animation:filmrun 2.2s linear infinite}.film:after{order:3}
 @keyframes filmrun{to{-webkit-mask-position:-40px 50%;mask-position:-40px 50%}}
 .fgrid{order:2;flex:1;min-height:0;display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));grid-template-rows:minmax(0,1fr);gap:clamp(10px,1.6vw,22px);padding:6px clamp(10px,1.6vw,22px)}.fgrid .fr{height:100%}
-/* ---------- letter ---------- */
 .lgrid{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.45fr) minmax(0,1fr);gap:clamp(12px,2.4vw,34px)}.lgrid>.fr{height:100%}
 .lmid{min-width:0;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:clamp(10px,2.2vh,20px)}
 .file{--cut:16px;width:100%;padding:clamp(18px,3.4vh,32px) clamp(18px,2vw,28px);cursor:pointer;text-align:left;transition:.4s}.file:hover{--fc:#fff;translate:0 -4px}
@@ -209,14 +215,12 @@ body.up-on .up-ov{display:flex}
 .paper .x{position:absolute;right:10px;top:8px;width:28px;height:28px;border:1px solid var(--c);background:rgba(95,212,255,.1);color:var(--c);cursor:pointer}.paper .x:hover{background:var(--c);color:#04020c}
 #ltxt{font:600 clamp(1.05rem,2.8vh,1.4rem)/1.55 var(--body);color:#ece8ff}#ltxt span{display:inline-block;margin-right:.28em}
 .paper.open #ltxt span{animation:ink .6s backwards;animation-delay:calc(var(--k)*.03s + .5s)}@keyframes ink{from{opacity:0;filter:blur(4px);translate:0 8px}}
-/* ---------- art pages (your pictures with photo holes) ---------- */
 .artw{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;container-type:size}
 .art{position:relative;width:min(100cqw,177.78cqh);aspect-ratio:1672/941;background:center/100% 100% no-repeat;border-radius:10px;box-shadow:0 0 40px rgba(139,92,255,.45)}
 .art .ph{position:absolute;border-radius:6px}
 .art .ph:hover{z-index:9;filter:brightness(1.12)}
 .art .ph:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(135deg,rgba(255,255,255,.16),transparent 38%)}
 .art .cn{position:absolute;font:400 .68rem var(--mono);color:var(--c);pointer-events:none}
-/* gallery (picture 4 style) */
 .gal{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:clamp(8px,2vw,30px);perspective:1300px}
 .gal:after{content:"";position:absolute;left:50%;bottom:4%;translate:-50% 0;width:min(70%,640px);height:14%;border-radius:50%;border:2px solid rgba(61,139,255,.8);box-shadow:0 0 30px rgba(61,139,255,.7),inset 0 0 30px rgba(139,92,255,.6);background:radial-gradient(ellipse,rgba(139,92,255,.35),transparent 70%)}
 .gc{position:relative;z-index:1;flex:none;height:min(50vh,420px);aspect-ratio:.78;border-radius:18px;border:2px solid var(--b);box-shadow:0 0 22px rgba(61,139,255,.7),inset 0 0 18px rgba(139,92,255,.4);transition:.5s;transform:rotateY(var(--ry,0deg)) scale(var(--s,.86))}
@@ -224,7 +228,6 @@ body.up-on .up-ov{display:flex}
 .gc:hover{--s:1.2;z-index:5}
 .gc .tp{position:absolute;left:50%;top:-18px;translate:-50% 0;z-index:12;width:34px;height:34px;display:grid;place-items:center;border-radius:50%;background:#0a0626;border:1px solid var(--v);box-shadow:0 0 14px var(--v);color:#fff}
 .gc .ph{position:absolute;inset:0;border-radius:16px}
-/* ---------- wishes ---------- */
 .wl{flex:1;min-height:0;display:grid;grid-template-columns:minmax(240px,350px) minmax(0,1fr);gap:clamp(14px,2.6vw,40px)}
 .fcol{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:2vh}
 .form{--cut:14px;width:100%;padding:16px;display:grid;gap:10px}.form .c{font:400 .75rem var(--mono);color:var(--c)}
@@ -237,7 +240,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 .pc:before{content:"// wish";position:absolute;top:9px;left:14px;font:400 .62rem var(--mono);letter-spacing:.18em;color:var(--c)}
 .pc .mt{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
 .pc b{display:block;margin-top:6px;font:400 .78rem var(--mono);color:var(--c)}
-/* ---------- surprise ---------- */
 .stg{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;gap:clamp(14px,4vw,70px)}
 .cakeW{display:flex;flex-direction:column;align-items:center;gap:1.6vh}
 .cakeS{height:min(44vh,380px);width:auto;overflow:visible;filter:drop-shadow(0 0 14px rgba(139,92,255,.5))}
@@ -248,13 +250,11 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 .sl{position:fixed;left:50%;top:50%;translate:-50% -44%;max-width:min(560px,92vw);max-height:76dvh;overflow:auto;padding:28px;font:600 clamp(1.1rem,3vh,1.5rem)/1.45 var(--body);background:rgba(6,4,20,.98);border:1px solid var(--p);box-shadow:0 0 0 100vmax rgba(2,1,8,.65),0 0 30px rgba(255,95,210,.5);opacity:0;visibility:hidden;transition:opacity .7s ease,translate .7s ease,visibility 0s linear .7s;z-index:80;cursor:pointer}
 .sl.show{opacity:1;visibility:visible;translate:-50% -50%;transition:opacity .7s ease,translate .7s ease,visibility 0s}
 .sl small{display:block;margin-top:12px;font:400 .68rem var(--mono);letter-spacing:.2em;color:var(--c)}
-/* ---------- lightbox + toasts ---------- */
 #lb{position:fixed;inset:0;z-index:90;background:rgba(2,1,8,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:18px;cursor:zoom-out;opacity:0;visibility:hidden;transition:opacity .45s,visibility 0s linear .45s}
 #lb.on{opacity:1;visibility:visible;transition:opacity .45s,visibility 0s}
 #lb img{max-width:92vw;max-height:78vh;border:1px solid var(--v);box-shadow:0 0 40px rgba(139,92,255,.7)}#lb p{color:var(--c);font:400 1rem var(--mono)}
 #out{position:fixed;left:278px;bottom:18px;z-index:62;max-width:min(560px,80vw);font:400 .82rem/1.55 var(--mono);color:var(--c);white-space:pre-wrap;background:rgba(6,4,20,.95);border:1px solid var(--v);padding:10px 14px;box-shadow:0 0 18px rgba(139,92,255,.4);opacity:0;translate:0 8px;transition:.45s;pointer-events:none}#out.show{opacity:1;translate:0}
 #ach{position:fixed;right:16px;top:50px;z-index:63;display:flex;gap:10px;padding:9px 14px;font:400 .72rem/1.4 var(--mono);color:#ffd36b;border:1px solid #ffd36b;background:rgba(10,8,2,.94);translate:130% 0;transition:translate .6s cubic-bezier(.2,.8,.2,1);pointer-events:none}#ach.show{translate:0}#ach b{color:#fff;font-weight:400}
-/* ---------- login popup (cmd prompt) ---------- */
 #gate{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:14px;background:rgba(3,1,10,.55);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px);transition:opacity 1s ease,visibility 0s linear 1s}
 #gate.go{opacity:0;visibility:hidden;pointer-events:none}
 .gbox{position:relative;overflow:hidden;width:min(740px,94vw);border:1px solid var(--v);background:rgba(5,3,16,.97);animation:glow 3s ease-in-out infinite alternate;transition:scale 1s}
@@ -274,7 +274,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 .tl.in input{flex:1;min-width:0;padding:0;border:0;background:transparent;box-shadow:none;font:inherit;letter-spacing:.2em;color:#fff;caret-color:var(--v)}
 .tl.in button{flex:none;height:26px;padding:0 12px;border:1px solid var(--v);background:rgba(139,92,255,.12);color:var(--v);font:inherit;cursor:pointer}.tl.in button:hover{background:var(--v);color:#04020c}
 #musicNote{padding:0 14px 8px;font:400 .72rem var(--mono);color:#ffb8e8}
-/* ---------- intro (picture 1) ---------- */
 #intro{position:fixed;inset:0;z-index:90;background:#05030f;display:flex;align-items:center;justify-content:center;container-type:size;opacity:0;visibility:hidden;transition:opacity 1s ease,visibility 0s linear 1s}
 #intro.on{opacity:1;visibility:visible;transition:opacity 1s ease,visibility 0s}
 #intro .art{background-image:url('assets/img/ui-intro.jpg');border-radius:0;box-shadow:none}
@@ -282,7 +281,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 #start:hover{box-shadow:0 0 40px 6px rgba(160,110,255,.8),inset 0 0 26px rgba(255,255,255,.25);background:rgba(160,110,255,.12)}
 #start:after{content:"";position:absolute;inset:-6px;border:2px solid rgba(190,150,255,.8);border-radius:18px;animation:ping 2s infinite}@keyframes ping{to{scale:1.18;opacity:0}}
 @keyframes spin{to{rotate:360deg}}
-/* ---------- responsive ---------- */
 @media(max-width:900px){
  #app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}
  .side{flex-direction:row;align-items:center;padding:6px;border-right:0;border-bottom:1px solid rgba(139,92,255,.4)}.logo,.mp,.cmdl{display:none}
@@ -310,18 +308,16 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 </defs></svg>
 <canvas id="stars"></canvas><canvas id="fx"></canvas>
 
-<!-- login popup: command prompt -->
 <div id="gate"><div class="gbox" id="gbox">
   <div class="gt"><span class="ci">C:\</span><span>Command Prompt — birthday.exe</span><span class="wc"><i>—</i><i>▢</i><i>✕</i></span></div>
   <div class="term" id="term"></div><div id="musicNote"></div>
 </div></div>
 
-<!-- intro (your picture 1, text line removed) -->
 <div id="intro"><div class="art"><button id="start" aria-label="Tap to start"></button></div></div>
 
 <div id="app">
  <aside class="side">
-  <div class="logo"><svg class="ic" viewBox="0 0 64 64" style="width:88px;height:58px"><use href="#iPad"/></svg><b>DUGONG BOMBO</b><small>PLAY • CODE • CELEBRATE</small></div>
+  <div class="logo"><svg class="ic" viewBox="0 0 64 64" style="width:88px;height:58px"><use href="#iPad"/></svg><b>ALLAN'S GALAXY</b><small>PLAY • CODE • CELEBRATE</small></div>
   <nav class="nav" id="nav"><?php foreach($tabs as $t): ?><a href="#<?=$t[0]?>"><?=ic($t[3],'currentColor',26)?><div><b><?=h($t[1])?></b><small><?=h($t[2])?></small></div></a><?php endforeach; ?></nav>
   <div class="mp" id="rec"><button id="play" title="Play / pause">▶</button><div class="mi"><small>NOW PLAYING</small><b><?=h($SONG)?></b><div class="pb"><i id="prog"></i></div></div><span id="tm">0:00</span></div>
   <label class="cmdl"><b>&gt;_</b><input id="cmd" autocomplete="off" spellcheck="false" placeholder='command… try "help"'></label>
@@ -332,7 +328,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
    <span class="clk"><i class="led"></i><span id="clk">00:00:00</span></span></header>
   <main class="view">
 
-<!-- ================= HOME / DASHBOARD ================= -->
 <section class="pg on" id="home" style="--ac:#8b5cff">
  <div class="wel"><div><small>Welcome back,</small><b><?=h($FIRST)?></b></div><span class="badge">♛ Legendary Programmer</span></div>
  <?php if(!empty($dbError)): ?><p style="font:400 .8rem var(--mono);color:#ff8aa8;margin-bottom:6px">Database not connected. Import database.sql in phpMyAdmin.</p><?php endif; ?>
@@ -354,7 +349,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
  </div>
 </section>
 
-<!-- ================= LETTER (unchanged layout) ================= -->
 <section class="pg" id="letter" style="--ac:#4d9dff">
 <?=ph('letter','$ ls ./letters &amp;&amp; decrypt love_letter.enc','A letter for you','// words i kept just for you ♥','encrypted','iLock')?>
 <div class="lgrid">
@@ -372,13 +366,11 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 </div>
 </section>
 
-<!-- ================= MEMORIES I (unchanged film strip) ================= -->
 <section class="pg" id="m1" style="--ac:#ff5fd2">
 <?=ph('m1','$ cat memories/first_hello.md','Where it all began','// the day my heart said yes to you ♥','first hello','iHeart')?>
 <div class="lay"><?=film($P,[3,4,5,6],'lv')?></div>
 </section>
 
-<!-- ================= MEMORIES II (picture 2 collage) ================= -->
 <section class="pg" id="m2" style="--ac:#8b5cff">
 <?=ph('m2','$ cat memories/us_together.md','Our little adventures','// every moment with you is my favorite ♥','just us','iCam')?>
 <div class="artw"><div class="art" style="background-image:url('assets/img/ui-mem2.jpg')">
@@ -388,7 +380,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 </div></div>
 </section>
 
-<!-- ================= MEMORIES III (picture 3 collage) ================= -->
 <section class="pg" id="m3" style="--ac:#3d8bff">
 <?=ph('m3','$ cat memories/level_up.md','Level up together','// good vibes · big dreams · more levels ♥','game on','iGem')?>
 <div class="artw"><div class="art" style="background-image:url('assets/img/ui-mem3.jpg')">
@@ -400,7 +391,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 </div></div>
 </section>
 
-<!-- ================= MEMORIES IV (picture 4 gallery) ================= -->
 <section class="pg" id="m4" style="--ac:#5fd4ff">
 <?=ph('m4','$ ls memories/gallery','The gallery','// five worlds, one favorite person ♥','gallery','iCam')?>
 <div class="gal">
@@ -410,7 +400,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 </div>
 </section>
 
-<!-- ================= WISHES ================= -->
 <section class="pg" id="wishes" style="--ac:#8b5cff">
 <?=ph('wishes','$ git log --wishes','Birthday wishes','','incoming','iChat')?>
 <div class="wl">
@@ -427,7 +416,6 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 <div class="pf"><div class="pr"><button class="sb" id="wprev">◀</button><span class="wcnt" id="wcnt">1 / 1</span><button class="sb" id="wnext">▶</button></div></div>
 </section>
 
-<!-- ================= SURPRISE ================= -->
 <section class="pg" id="surprise" style="--ac:#ff5fd2">
 <?=ph('surprise','$ ./make_a_wish.sh --blow','Blow the candles','','bonus level','iStar')?>
 <div class="stg">
@@ -476,7 +464,7 @@ audio.ontimeupdate=()=>{$('#tm').textContent=fmt(audio.currentTime);if(audio.dur
 $('.pb').onclick=e=>{if(audio.duration){const r=e.currentTarget.getBoundingClientRect();audio.currentTime=(e.clientX-r.left)/r.width*audio.duration}};
 function ach(t){const a=$('#ach');a.innerHTML='🏆 <span>achievement unlocked<br><b>'+t+'</b></span>';a.classList.add('show');clearTimeout(ach.t);ach.t=setTimeout(()=>a.classList.remove('show'),3400)}
 
-/* ---- login: password stays 4311 ---- */
+/* ---- login ---- */
 const gate=$('#gate'),gbox=$('#gbox'),term=$('#term');let busyLogin=false,pw=null;
 const FN='<?=h($fn)?>',FULL='<?=h($S['name'])?>',FIRST='<?=h($FIRST)?>',SONGN='<?=h($SONG)?>';
 const PS='C:\\Users\\'+FN+'\\birthday&gt;';
@@ -506,7 +494,7 @@ gbox.onclick=()=>{if(pw&&document.body.contains(pw)&&!busyLogin)pw.focus()};
   line('// note: you know this one — it\'s both our password now ♥','note');await wait(300);
   line('Enter the password to open the birthday:');prompt()})();
 
-/* ---- intro: TAP TO START -> dashboard ---- */
+/* ---- intro ---- */
 $('#start').onclick=e=>{live=true;document.body.classList.add('live');$('#intro').classList.remove('on');location.hash='#home';route();setTimeout(()=>{rain();ach('access_granted')},500)};
 
 /* ---- stars + confetti ---- */
@@ -546,7 +534,7 @@ let wp=0;const WS=6;
 function wpage(d=0,set){const w=$$('#wall .pc'),n=Math.max(1,Math.ceil(w.length/WS));wp=set!==undefined?set:((wp+d)%n+n)%n;w.forEach((x,i)=>x.style.display=(i>=wp*WS&&i<(wp+1)*WS)?'':'none');$('#wcnt').textContent=(wp+1)+' / '+n}
 $('#wprev').onclick=()=>wpage(-1);$('#wnext').onclick=()=>wpage(1);wpage(0);
 
-/* ---- routing (sidebar) ---- */
+/* ---- routing ---- */
 const ids=$$('.pg').map(p=>p.id),seen=new Set();
 function route(){const id=(location.hash||'#home').slice(1),pg=$('#'+id)||$('#home');closeModals();
   $$('.pg').forEach(p=>p.classList.toggle('on',p===pg));$$('#nav a').forEach(a=>a.classList.toggle('on',a.hash==='#'+pg.id));
@@ -557,7 +545,7 @@ addEventListener('hashchange',route);route();
 const goTo=id=>{location.hash='#'+id};
 const step=d=>{const cur=ids.indexOf($('.pg.on').id);goTo(ids[(cur+d+ids.length)%ids.length])};
 
-/* ---- command pad (sidebar) ---- */
+/* ---- command pad ---- */
 const out=$('#out');
 function say(t){out.textContent=t;out.classList.add('show');clearTimeout(say.t);say.t=setTimeout(()=>out.classList.remove('show'),5200)}
 const alias={home:'home',cover:'home',letter:'letter',m1:'m1',mem1:'m1',m2:'m2',mem2:'m2',m3:'m3',mem3:'m3',m4:'m4',mem4:'m4',gallery:'m4',wishes:'wishes',wish:'wishes',surprise:'surprise',cake:'surprise'};
@@ -574,7 +562,7 @@ $('#cmd').onkeydown=e=>{if(e.key==='Escape'){e.target.blur();return}if(e.key!=='
 addEventListener('keydown',e=>{if(!live||e.target.matches('input,textarea'))return;
   if(e.key==='/'){e.preventDefault();$('#cmd').focus();return}if(e.key==='ArrowRight')step(1);if(e.key==='ArrowLeft')step(-1)});
 
-/* ---- lightbox (disabled while upload is ON) ---- */
+/* ---- lightbox ---- */
 const lb=$('#lb');
 $$('.ph').forEach(p=>p.addEventListener('click',()=>{if(document.body.classList.contains('up-on'))return;$('img',lb).src=p.dataset.full;$('p',lb).textContent=p.dataset.cap;lb.classList.add('on')}));
 lb.onclick=()=>lb.classList.remove('on');
@@ -582,12 +570,12 @@ const blow=$('#blow');blow.onclick=()=>{$('#cakeS').classList.add('out');blow.di
 $('#sl').onclick=()=>$('#sl').classList.remove('show');
 $$('.cn2').forEach(c=>c.onclick=()=>{const f=$('.fl',c);f.style.opacity=f.style.opacity==='0'?1:0});
 
-/* ---- wishes saved in MySQL ---- */
+/* ---- wishes ---- */
 $('#wishForm').onsubmit=async e=>{e.preventDefault();const f=e.target;
   try{const r=await(await fetch('index.php',{method:'POST',body:new FormData(f)})).json();
   if(r.ok){const d=document.createElement('div');d.className='pc';d.style.setProperty('--c2',cols[Math.floor(Math.random()*5)]);const m=document.createElement('span');m.className='mt';m.textContent=r.message;const b=document.createElement('b');b.textContent='— '+r.name;d.append(m,b);$('#wall').prepend(d);f.reset();wpage(0,0);rain()}}catch(x){}};
 
-/* ---- upload switch (remembered) ---- */
+/* ---- upload toggle ---- */
 {const t=$('#upToggle');
  const set=v=>{document.body.classList.toggle('up-on',v);$('#upSt').textContent=v?'ON':'OFF';try{localStorage.setItem('upOn',v?'1':'0')}catch(e){}};
  let s=false;try{s=localStorage.getItem('upOn')==='1'}catch(e){}
