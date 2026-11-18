@@ -7,10 +7,13 @@ $DB=[
     'user'=>getenv('DB_USER')?:'root',
     'pass'=>getenv('DB_PASS')?:''
 ];
+/* optional: put your TiDB details in db_config.php (next to index.php) instead of Render settings */
+if(is_file(__DIR__.'/db_config.php')){$cfg=include __DIR__.'/db_config.php';if(is_array($cfg))foreach($cfg as $k=>$v)if($v!==''&&isset($DB[$k]))$DB[$k]=$v;}
 $isLocal=in_array($DB['host'],['localhost','127.0.0.1','::1']);
 if($DB['port']==='')$DB['port']=$isLocal?'3306':'4000';
 $MUSIC='assets/music/the-only-exception.mp3'; $SONG='The Only Exception';
 $PASSWORD='4311';
+$LPW='021514'; // password for the secret letter
 
 function h($s){return htmlspecialchars((string)$s,ENT_QUOTES,'UTF-8');}
 function src($f){
@@ -70,6 +73,22 @@ if(!empty($dbError)){
   $wishes=wload();
 }
 $S['birthday']='2004-11-20';
+/* ===== the letter lives in the code (works with or without the database) ===== */
+$S['greeting']=<<<'LETTER'
+Happy birthday lan! 
+Thankyou for everything🥹 Im so grateful and thankful nga gin hatag ka sakon ka Ginoo, you bring sooo much comfort sakon life, like life is hard and pano nalang kon wala kpgd?. i just want to praise Jesus for your life! u makee my life so much easierrrrrr,  miski gina pa stress mo mn ko pirmi hayzzz hahaha 
+
+
+i hope you’re happy. i always 
+want is to see you win in life and i more than want to see you na gina gamit ka Ginoo, nga gadalom pgd sa Ginoo. kabalo ko may plano sa simo. may plano sa saton. let’s have more faith knowing na wala yata gn balik sa isa kag isa just for nothing. let us seek Him more together and forever 
+
+
+nothing i dream more but for us to have same faith, all i can see is a future with u. if u only knew. im praying that if God willing nd nata mag break pirmi that all of this will road to forver —— forever with you and us forever with God. let strengthen each other always. and pray always for our realationship. and pray for me hahaha more patience to come.
+
+maybe im not that showy in everything —— but i hope kabalo ka na wala nako sng iban pa na gusto kondi ikw lang. i never imagine my self ending with another guy. ikaw langd ya gyapon. but syempre God willing, i know you always want me to say i love you and i want i love you to be more special now haha happy birthday and—— I LOVE YOU ALLAN MARI CASTIGADOR❤️
+LETTER;
+/* surprise message (shown after blowing the candles) */
+$S['secret_letter']='I LOVE YOU';
 for($i=count($P);$i<22;$i++)$P[]=['title'=>'','caption'=>'','file'=>'dummy:'.($i+1)];
 /* ===== photos from folder: assets/img/photos/photo1.jpg, photo2.png ... (works on Render) ===== */
 function localPhoto($n){foreach(['jpg','jpeg','png','webp','gif','JPG','JPEG','PNG','WEBP'] as $e){$f="assets/img/photos/photo$n.$e";if(is_file(__DIR__."/$f"))return $f;}return null;}
@@ -527,6 +546,15 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
  .cakeS{height:min(40vh,320px)}
  .ist{height:auto;max-height:94dvh}.icen{padding:0 10px}
 }
+/* ===== v7: secret letter password ===== */
+.pwm{position:fixed;left:50%;top:50%;translate:-50% -44%;width:min(420px,92vw);padding:34px 26px 24px;text-align:center;display:grid;gap:10px;justify-items:center;background:rgba(6,4,20,.98);border:1px solid var(--v);box-shadow:0 0 0 100vmax rgba(2,1,8,.75),0 0 34px rgba(139,92,255,.5);opacity:0;visibility:hidden;transition:opacity .5s ease,translate .5s ease,visibility 0s linear .5s;z-index:85}
+.pwm.show{opacity:1;visibility:visible;translate:-50% -50%;transition:opacity .5s ease,translate .5s ease,visibility 0s}
+.pwm h4{font:700 .85rem var(--head);letter-spacing:.14em;color:#fff;text-shadow:0 0 10px var(--v)}
+.pwm p{font:400 .75rem var(--mono);color:var(--c)}
+.pwm input{text-align:center;letter-spacing:.4em;font-size:1.3rem}
+.pwm.bad input{animation:shake .4s;border-color:#ff5f56}
+.pwe{min-height:1.2em;font:400 .75rem var(--mono);color:#ff8aa8}
+.pwm .x{position:absolute;right:10px;top:8px;width:28px;height:28px;border:1px solid var(--c);background:rgba(95,212,255,.1);color:var(--c);cursor:pointer}.pwm .x:hover{background:var(--c);color:#04020c}
 </style></head><body>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -725,6 +753,7 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 </div>
 
 <div class="paper" id="paper"><button class="x" id="px">✕</button><div id="ltxt" data-text="<?=h($S['greeting'])?>"></div></div>
+<div class="pwm" id="pwm"><button class="x" id="pwx" type="button">✕</button><?=ic('iLock','#8b5cff',44)?><h4>LOVE_LETTER.ENC IS LOCKED</h4><p>enter the password to open it</p><input id="pwi" type="password" inputmode="numeric" autocomplete="off" placeholder="••••••"><div class="pwe" id="pwe"></div><button class="btn" id="pwg" type="button">$ decrypt</button></div>
 <div class="sl" id="sl">💌 <?=nl2br(h($S['secret_letter']))?><small>// TAP TO CLOSE</small></div>
 <div id="lb"><img alt=""><p></p></div>
 <div id="out"></div><div id="ach"></div>
@@ -733,7 +762,7 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 
 <script>
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
-const PW='<?=h($PASSWORD)?>';
+const PW='<?=h($PASSWORD)?>',LPW='<?=h($LPW)?>';
 let started=false,unlocked=false,live=false;
 const audio=$('#bgm'),play=$('#play'),cols=['#8b5cff','#3d8bff','#ff5fd2','#5fd4ff','#b48cff'];
 
@@ -845,9 +874,15 @@ function typeIt(el){const t=el.dataset.t.replace(/&amp;/g,'&');el.textContent=''
 {const el=$('#ltxt'),esc=w=>w.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));let k=0;
  el.innerHTML=el.dataset.text.split('\n').map(l=>l.trim()?l.trim().split(' ').map(w=>`<span style="--k:${k++}">${esc(w)}</span>`).join(' ')+'<br>':'<br>').join('')}
 const file=$('#env');let busy=false;
-file.onclick=()=>{if(busy)return;busy=true;file.classList.add('run');$('#fs').textContent='status: decrypting…';setTimeout(()=>{$('#fs').textContent='status: decrypted ✓';file.classList.remove('run');$('#paper').classList.add('open');busy=false},1400)};
+file.onclick=()=>{if(busy)return;busy=true;file.classList.add('run');$('#fs').textContent='status: decrypting…';setTimeout(()=>{$('#fs').textContent='status: password required';file.classList.remove('run');openPw()},1400)};
 $('#px').onclick=()=>closeModals();
-function closeModals(){$('#paper').classList.remove('open');$('#sl').classList.remove('show');file.classList.remove('run');busy=false;$('#fs').textContent='status: locked'}
+const pwi=$('#pwi'),pwe=$('#pwe'),pwm=$('#pwm');
+function openPw(){pwi.value='';pwe.textContent='';pwm.classList.remove('bad');pwm.classList.add('show');setTimeout(()=>pwi.focus(),200)}
+function checkPw(){if(pwi.value.trim()===LPW){pwm.classList.remove('show');$('#fs').textContent='status: decrypted ✓';$('#paper').classList.add('open');busy=false}
+  else{pwm.classList.remove('bad');void pwm.offsetWidth;pwm.classList.add('bad');pwe.textContent='Wrong password. Try again ♥';pwi.value='';pwi.focus()}}
+$('#pwg').onclick=checkPw;$('#pwx').onclick=()=>closeModals();
+pwi.onkeydown=e=>{if(e.key==='Enter')checkPw();if(e.key==='Escape')closeModals()};
+function closeModals(){$('#pwm').classList.remove('show');$('#paper').classList.remove('open');$('#sl').classList.remove('show');file.classList.remove('run');busy=false;$('#fs').textContent='status: locked'}
 
 /* ---- wishes ---- */
 let wp=0;const WS=6;
