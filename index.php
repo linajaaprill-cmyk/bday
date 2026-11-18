@@ -54,8 +54,23 @@ try{
   $P=$pdo->query("SELECT * FROM photos ORDER BY sort_order,id")->fetchAll();
   $wishes=$pdo->query("SELECT * FROM wishes ORDER BY id DESC")->fetchAll();
 }catch(Throwable $e){$dbError=true;}
+/* ===== wishes fallback: if the database is unreachable (e.g. on Render), wishes are kept in a file ===== */
+function wfile(){$f=__DIR__.'/wishes_fallback.json';return (is_file($f)?is_writable($f):is_writable(__DIR__))?$f:sys_get_temp_dir().'/wishes_fallback.json';}
+function wload(){$f=wfile();$a=is_file($f)?json_decode((string)file_get_contents($f),true):[];return is_array($a)?$a:[];}
+if(!empty($dbError)){
+  if($_SERVER['REQUEST_METHOD']==='POST'){
+    header('Content-Type: application/json');
+    $n=mb_substr(trim($_POST['name']??''),0,60);$m=mb_substr(trim($_POST['message']??''),0,500);
+    if($n!==''&&$m!==''){$a=wload();array_unshift($a,['name'=>$n,'message'=>$m,'created_at'=>date('Y-m-d H:i:s')]);
+      $ok=@file_put_contents(wfile(),json_encode($a,JSON_UNESCAPED_UNICODE),LOCK_EX)!==false;
+      echo json_encode($ok?['ok'=>1,'name'=>$n,'message'=>$m]:['ok'=>0]);}
+    else echo json_encode(['ok'=>0]);
+    exit;
+  }
+  $wishes=wload();
+}
 $S['birthday']='2004-11-20';
-for($i=count($P);$i<22;$i++)$P[]=['title'=>'Photo '.($i+1),'caption'=>'Add your caption','file'=>'dummy:'.($i+1)];
+for($i=count($P);$i<22;$i++)$P[]=['title'=>'','caption'=>'','file'=>'dummy:'.($i+1)];
 /* ===== photos from folder: assets/img/photos/photo1.jpg, photo2.png ... (works on Render) ===== */
 function localPhoto($n){foreach(['jpg','jpeg','png','webp','gif','JPG','JPEG','PNG','WEBP'] as $e){$f="assets/img/photos/photo$n.$e";if(is_file(__DIR__."/$f"))return $f;}return null;}
 for($i=0;$i<22;$i++){
@@ -66,10 +81,11 @@ $FIRST=strtok($S['name'],' ');
 $fn=strtolower(preg_replace('/[^a-z]/i','',$FIRST))?:'player';
 
 /* ===== helpers ===== */
+function capt($p){return implode(' — ',array_filter([trim((string)($p['title']??'')),trim((string)($p['caption']??''))],'strlen'));}
 function pic($P,$i,$cls='',$st=''){$p=$P[$i];$s=src($p['file']);
-  return '<figure class="ph '.$cls.'" style="'.$st.'" data-full="'.$s.'" data-cap="'.h($p['title'].' — '.$p['caption']).'"><img src="'.$s.'" alt="'.h($p['title']).'" loading="lazy"></figure>';}
+  return '<figure class="ph '.$cls.'" style="'.$st.'" data-full="'.$s.'" data-cap="'.h(capt($p)).'"><img src="'.$s.'" alt="'.h($p['title']).'" loading="lazy"></figure>';}
 function fr($P,$i,$t,$k=0,$st=''){$p=$P[$i];$s=src($p['file']);
-  return '<figure class="ph fr '.$t.'" style="--i:'.$k.';'.$st.'" data-full="'.$s.'" data-cap="'.h($p['title'].' — '.$p['caption']).'"><div class="fi"><div class="wb"><i></i><i></i><i></i><span>▸ '.h($p['title']).'</span></div><div class="im"><img src="'.$s.'" alt="'.h($p['title']).'" loading="lazy"></div></div></figure>';}
+  return '<figure class="ph fr '.$t.'" style="--i:'.$k.';'.$st.'" data-full="'.$s.'" data-cap="'.h(capt($p)).'"><div class="fi"><div class="wb"><i></i><i></i><i></i>'.($p['title']!==''?'<span>▸ '.h($p['title']).'</span>':'').'</div><div class="im"><img src="'.$s.'" alt="'.h($p['title']).'" loading="lazy"></div></div></figure>';}
 function ic($s,$c='currentColor',$z=20){return '<svg class="ic" viewBox="0 0 64 64" style="color:'.$c.';width:'.$z.'px;height:'.$z.'px"><use href="#'.$s.'"/></svg>';}
 function bloom($c,$hh,$x=''){return '<svg class="ic bl" viewBox="0 0 64 96" style="color:'.$c.';height:'.$hh.';'.$x.'"><use href="#iBloom"/></svg>';}
 function ckt(){return '<svg class="k tl" viewBox="0 0 100 100"><use href="#ckC"/></svg><svg class="k tr" viewBox="0 0 100 100"><use href="#ckC"/></svg><svg class="k bl" viewBox="0 0 100 100"><use href="#ckC"/></svg><svg class="k br" viewBox="0 0 100 100"><use href="#ckC"/></svg>';}
@@ -472,6 +488,45 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 .cn2.off .fl{opacity:0;scale:0}
 .cbtns{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .cake-tw{max-width:380px;text-align:center;font:400 .68rem/1.4 var(--mono);color:var(--dim)}
+/* ===== v6: MOBILE ONLY (max-width:900px) - desktop is untouched ===== */
+#burger,#mback{display:none}
+@media(max-width:900px){
+ #app{grid-template-rows:minmax(0,1fr)}
+ .side{position:fixed;left:0;top:0;bottom:0;width:min(84vw,300px);z-index:70;flex-direction:column;align-items:stretch;gap:10px;padding:14px 12px;border-right:1px solid rgba(139,92,255,.5);border-bottom:0;overflow-y:auto;background:linear-gradient(180deg,rgba(14,8,40,.98),rgba(4,2,12,.99));transform:translateX(-105%);transition:transform .35s cubic-bezier(.2,.8,.2,1);box-shadow:none}
+ body.menu .side{transform:none;box-shadow:0 0 40px rgba(139,92,255,.6)}
+ .logo{display:block}.mp{display:flex}.cmdl{display:flex}
+ .nav{flex:none;flex-direction:column;overflow:visible}.nav a{padding:7px 10px}.nav a div{display:block}
+ #mback{display:block;position:fixed;inset:0;z-index:60;background:rgba(2,1,8,.7);opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s linear .3s}
+ body.menu #mback{opacity:1;visibility:visible;transition:opacity .3s}
+ #burger{display:grid;place-items:center;width:40px;height:30px;border:1px solid var(--v);border-radius:8px;background:rgba(139,92,255,.15);color:#fff;font-size:1.1rem;line-height:1;cursor:pointer;box-shadow:0 0 12px rgba(139,92,255,.6)}
+ .dots{display:none}
+ .pg{padding:12px 12px 20px;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+ .pg>*{flex-shrink:0}
+ .head{flex-wrap:wrap;gap:8px}
+ .ttl{font-size:clamp(1rem,5.4vw,1.5rem)}
+ .wel{flex-wrap:wrap;gap:10px}
+ .dash{display:grid;grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:auto;flex:none;overflow:visible;gap:14px}
+ .hero{grid-column:auto;order:-1;padding:6px 0}
+ .big{font-size:clamp(1.8rem,9vw,3rem);transform:scaleX(1.04)}
+ .chips{display:flex}.msg small{display:block}
+ .dash .msg{font-size:.95rem}
+ .qst .qi:nth-child(n+5){display:grid}
+ .dg{font-size:clamp(1.5rem,8vw,2.3rem)}
+ .lgrid{flex:none;grid-template-columns:1fr}
+ .lay{flex:none}.lay>.film{height:auto}
+ .fgrid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:none;grid-auto-rows:clamp(150px,30vh,260px)}
+ .g3{flex:none;grid-template-columns:1fr 1fr;grid-template-rows:clamp(220px,36vh,330px) repeat(2,clamp(150px,24vh,220px));overflow:visible;gap:18px 14px;padding:10px 8px}
+ .gal{flex:none;overflow-x:auto;justify-content:flex-start;gap:16px;padding:34px 22px 22px;perspective:none;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+ .gal:after{display:none}
+ .gc:not(.c){display:block}
+ .gc{height:min(54vh,380px);transform:none;scroll-snap-align:center}
+ .gc:hover{--s:1}
+ .wl{flex:none;grid-template-columns:1fr}.fcol .bl{display:none}
+ .pcs{grid-template-columns:1fr;grid-template-rows:none;grid-auto-rows:auto}
+ .stg{flex:none;flex-direction:column;gap:14px;padding:6px 0 20px}.stg>.bl{display:none}
+ .cakeS{height:min(40vh,320px)}
+ .ist{height:auto;max-height:94dvh}.icen{padding:0 10px}
+}
 </style></head><body>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -512,7 +567,7 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
     <div class="sc-h">Happy</div>
     <div class="sc-h b2">Birthday!</div>
     <div class="sc-n">Allan Mari</div>
-    <div class="sc-f">To my favorite person ♡</div>
+    <div class="sc-f">Another level unlocked, just for you ♡</div>
     <div class="sc-g">Turning <b>22</b> &nbsp;·&nbsp; A new level of happiness is about to begin...</div>
     <div class="sw"><span class="iring"></span><span class="iring r2"></span><button id="start" aria-label="Tap to start"><i>▶</i> TAP TO START</button></div>
   </div>
@@ -523,6 +578,7 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
 </div></div>
 
 <div id="app">
+ <div id="mback"></div>
  <aside class="side">
   <div class="sprof"><span class="gp"><?=pic($P,14,'av')?><em>PLAYER 01 ///</em></span><div class="nick"><small>Welcome back,</small><b>ONICHAN</b></div></div>
   <div class="logo"><span class="lgw"><img class="lgi" src="assets/img/logo.png" alt="" onerror="this.parentNode.classList.add('nologo')"><svg class="ic lgs" viewBox="0 0 64 64"><use href="#iPad"/></svg></span><b>ALLAN'S GALAXY</b><small>PLAY • CODE • CELEBRATE</small></div>
@@ -531,7 +587,7 @@ input,textarea{width:100%;padding:10px 12px;border:1px solid rgba(139,92,255,.5)
   <label class="cmdl"><b>&gt;_</b><input id="cmd" autocomplete="off" spellcheck="false" placeholder='command… try "help"'></label>
  </aside>
  <div class="mainc">
-  <header class="topb"><div class="dots"><i></i><i></i><i></i></div>
+  <header class="topb"><button id="burger" type="button" aria-label="Menu" aria-expanded="false">☰</button><div class="dots"><i></i><i></i><i></i></div>
    <span class="clk"><i class="led"></i><span id="clk">00:00:00</span></span></header>
   <main class="view">
 
@@ -848,9 +904,16 @@ $('#sl').onclick=()=>$('#sl').classList.remove('show');
 $$('.cn2').forEach(c=>c.onclick=()=>{const f=$('.fl',c);f.style.opacity=f.style.opacity==='0'?1:0});
 
 /* ---- wishes ---- */
-$('#wishForm').onsubmit=async e=>{e.preventDefault();const f=e.target;
-  try{const r=await(await fetch('index.php',{method:'POST',body:new FormData(f)})).json();
-  if(r.ok){const d=document.createElement('div');d.className='pc';d.style.setProperty('--c2',cols[Math.floor(Math.random()*5)]);const m=document.createElement('span');m.className='mt';m.textContent=r.message;const b=document.createElement('b');b.textContent='— '+r.name;d.append(m,b);$('#wall').prepend(d);f.reset();wpage(0,0);rain()}}catch(x){}};
+$('#wishForm').onsubmit=async e=>{e.preventDefault();const f=e.target,btn=$('button',f);btn.disabled=true;
+  try{const res=await fetch(location.href.split('#')[0],{method:'POST',body:new FormData(f)}),r=await res.json();
+  if(r.ok){const d=document.createElement('div');d.className='pc';d.style.setProperty('--c2',cols[Math.floor(Math.random()*5)]);const m=document.createElement('span');m.className='mt';m.textContent=r.message;const b=document.createElement('b');b.textContent='— '+r.name;d.append(m,b);$('#wall').prepend(d);f.reset();wpage(0,0);rain()}
+  else say('could not send your wish, please try again')}catch(x){say('could not send your wish, please try again')}
+  btn.disabled=false};
 
+/* ---- mobile: collapsible sidebar ---- */
+{const bd=document.body,bg=$('#burger'),set=o=>{bd.classList.toggle('menu',o);bg.textContent=o?'✕':'☰';bg.setAttribute('aria-expanded',o)};
+ bg.onclick=()=>set(!bd.classList.contains('menu'));$('#mback').onclick=()=>set(false);$('#nav').addEventListener('click',()=>set(false));
+ addEventListener('hashchange',()=>set(false));addEventListener('keydown',e=>{if(e.key==='Escape')set(false)});
+ matchMedia('(min-width:901px)').addEventListener('change',e=>{if(e.matches)set(false)})}
 </script>
 </body></html>
